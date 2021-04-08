@@ -36,6 +36,8 @@ library(plyr)
 library(tidyr)
 library(ggplot2)
 library(purrr)
+library(tidytext)
+library(sentimentr)
 options(scipen = 999)
 ```
 
@@ -56,7 +58,7 @@ h <- read_html(url)
 
 ```
 -testing area 3 THE GOODS
-```{r}
+```{r warning=FALSE}
 
 url <- "https://www.imdb.com/search/title/?groups=top_1000&start=1"
 html2 <- read_html(url)
@@ -122,7 +124,7 @@ get_reviews <- function(review_links){
          #year
          year_nodes <- html_nodes(html, "#titleYear a")
          years <- html_text(year_nodes)
-         #years <- parse_number(years)
+         years <- as.numeric(years)
          
          #titles
          title_nodes <- html_nodes(html, "h1")
@@ -162,7 +164,7 @@ get_reviews <- function(review_links){
         
          
          
-        df2 <- data.frame(titles, years,stars, ratings, num_rating, gross,budget, genre, links)
+        df2 <- data.frame(titles, years,stars, ratings, num_rating, gross,budget, genre)
         names(df2)[names(df2)=="titles"] <- "Title"
         names(df2)[names(df2)=="years"] <- "Year"
         names(df2)[names(df2)=="stars"] <- "Stars"
@@ -180,23 +182,6 @@ movie_data
       
 ```
 - test 4 
-```{r}
-links
-  get_data("https://www.imdb.com/title/tt0112573/?ref_=adv_li_tt")
-     get_data(links[1])
-     get_data(links[50])
-     
-     get_data(links[20])
-     get_data(links[10])
-     get_data(links[5])
-     get_data(links[15])
-     get_data(links[25])
-     get_data(links[35])
-     get_data(links[45])
-     get_data(links[17])
-     get_reviews(review_links[46])
-
-```
 
 _Victory conditions:_ You have a data frame with 1000 rows and columns that contain the first six variables, as well as each genre, review, and review helpfulness scores in appropriately formatted columns. Columns have short but clear names. Most rows have no missing values; the few rows where there are missing values have NA in the appropriate places. 
 
@@ -207,9 +192,11 @@ rdata
 ```
 
 2. (30 pts) Write code to plot the distributions of the first five variables listed above. Make sure missing values, if any, are handled gracefully. Your plots should be appropriately labeled, titled, colored, etc. Comment on the features each plot presents -- what information is gained by seeing these graphics?
-```{r}
+```{r warning=FALSE}
+
+
 year_histo <- ggplot(data =rdata, aes(rdata$year))
-year_histo <- year_histo + geom_histogram(color = "black", fill = "grey") + xlab("Year") + ylab("Number of Movies") +ggtitle("Number of Movies Released per Year") +geom_vline(xintercept =mean(rdata$year), color = "blue")
+year_histo <- year_histo + geom_histogram(stat="count", color = "black", fill = "grey") + xlab("Year") + ylab("Number of Movies") +ggtitle("Number of Movies Released per Year") +geom_vline(xintercept =mean(rdata$year), color = "blue")
 
 budget_histo <- ggplot( data = rdata, aes(rdata$budget))
 budget_histo <- budget_histo + geom_histogram(color = "black", fill = "grey")+ xlim(0, 50000000) +ylim(0,75)+ xlab("Budget") + ylab("Number of Movies") +ggtitle("Number of Movies per Budget")+ geom_vline(xintercept =mean(rdata$budget, na.rm = TRUE), color = "blue")
@@ -233,23 +220,54 @@ num_rating_histo
 
 
 3. (20 pts) Complete a sentiment analyses on the 25 most helpful reviews for each movie. The choice of lexicon is up to you, but explain your reasons why your choice is the most reasonable/appropriate option. Add a summary of this information to your original data frame.
+```{r}
 
-4. (20 pts) Variable Relationships. Create one plot that displays the relationship (or lack thereof) between any of the movie variables. Your plot should be appropriately labeled, titled, colored, etc. Your plot should display at minimum 3 variables. A plot with more variables included will be scored more favorably (as long as the plot is reasonable and legible). Reviews and helpfulness/sentiment scores are considered aggregate variables (e.g., 25 helpfulness scores will be considered a single variable). Some questions that you might consider when creating your plot are below, though you are not limited to these questions. 
+sentiment1 <- sentiment_by(rdata$Review_1)
+one <- sentiment1
+one$title <- rdata$title
+names(one)[names(one)== "ave_sentiment"] <- "ave_sentiment_1"
+full_one <- subset(one, select = c("ave_sentiment_1", "title"))
+rdata1 <- left_join(rdata, full_one, by.x = res, by.y=0)
+rdata1
+
+sentiment2 <- sentiment_by(rdata$Review_2)
+two <- sentiment2
+two$title <- rdata$title
+names(two)[names(two)== "ave_sentiment"] <- "ave_sentiment_2"
+full_two <- subset(two, select = c("ave_sentiment_2", "title"))
+rdata1 <- left_join(rdata1, full_two, by.x = res, by.y=0)
+rdata1
+
+```
+
+
+4. (20 pts) Variable Relationships. Create one plot that displays the relationship (or lack thereof) between any of the movie variables. Your plot should be appropriately labeled, titled, colored, etc. Your plot should display at minimum 3 variables. A plot with more variables included will be scored more favorably (as long as the plot is reasonable and legible). Reviews and helpfulness/sentiment scores are considered aggregate variables (e.g., 25 helpfulness scores will be considered a single variable). Some questi ons that you might consider when creating your plot are below, though you are not limited to these questions. 
    - Is there any evidence of a relationship between review helpfulness and review sentiment? 
    - Do the review scores (from the most helpful reviews) generally agree with the overall IMDB average rating?
    - Is there evidence of a relationship between average IMDB rating and a movie's gross? Does release year seem to have an effect on this relationship?
    - Is there evidence of a relationship between a movie's budget and a movie's gross? Does release year seem to have an effect on this relationship? 
    - Do any actors have an effect (positive or negative) on the relationship between budget, gross, or average IMDB rating? Is this pattern common across any genres?
+   
+   -ratings vs gross by actor
 ```{r}
+factors <- as.factor(rdata$rating)
+factors2 <- as.factor(rdata$actors)
+top_actors <- rdata %>% filter(grepl('Robin Williams|Kevin Costner|Michael J. Fox|Steve Martin|Julia Roberts|Keanu Reeves|Al Pacino|Mel Gibson|Charlie Sheen|Arnold Schwarzenegger', actors))
+
+var3 <- ggplot(data = rdata, aes(x= rdata$rating, y= rdata$gross))
+var3 <- var3 + geom_point() +xlim(7.5,10)
+var2 <- ggplot(data = top_actors, aes(x= top_actors$rating, y=top_actors$gross, color = "blue"))
+var2 <- var2 +geom_point() +xlim(7.5,10)
+
+plot2 <- ggplot(NULL, aes(`rating`, `gross`)) + 
+
+  geom_point(data = rdata, color = "darkgrey") +
+
+  geom_point(data = top_actors, color = "red", show.legend = TRUE) + ylim(0,500000000) 
+plot2
 
 ```
    
 
   
   
-  
-  
-  
-  
-
-
